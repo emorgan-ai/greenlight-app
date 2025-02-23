@@ -1,28 +1,33 @@
 import { PDFDocument } from 'pdf-lib';
-import pdf from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 
 export async function validatePDF(buffer: Buffer) {
   try {
-    // Try to load the PDF to verify it's valid
+    // Check if it's a valid PDF
     const pdfDoc = await PDFDocument.load(buffer);
     const pageCount = pdfDoc.getPageCount();
-
-    if (pageCount > 10) {
-      throw new Error('PDF must be 10 pages or less');
-    }
-
-    return true;
+    
+    // Get text content
+    const data = await pdfParse(buffer);
+    const textContent = data.text;
+    
+    return {
+      isValid: true,
+      pageCount,
+      textContent
+    };
   } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('Invalid PDF file');
+    console.error('Error validating PDF:', error);
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Invalid PDF file'
+    };
   }
 }
 
-export async function extractTextFromPDF(buffer: Buffer) {
+export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const data = await pdf(buffer);
+    const data = await pdfParse(buffer);
     return data.text;
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
