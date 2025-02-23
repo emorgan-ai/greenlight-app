@@ -1,12 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
-import { connectToDatabase, updateSubmission } from '../../../lib/mongodb';
+import { connectToDatabase, updateSubmission, analyzeManuscript } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 import logger from '../../../lib/logger';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 interface BookDetails {
   title: string;
@@ -25,66 +20,6 @@ interface AnalysisResults {
   themes: string[];
   comparable_titles: BookDetails[];
   recent_titles: BookDetails[];
-}
-
-async function analyzeManuscript(text: string): Promise<AnalysisResults> {
-  logger.info('[Process API] Starting manuscript analysis');
-  
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4-turbo-preview",
-    messages: [
-      {
-        role: "system",
-        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
-        {
-          "genre": "Primary genre of the manuscript",
-          "tropes": ["List of literary tropes used"],
-          "themes": ["List of major themes"],
-          "comparable_titles": [
-            {
-              "title": "Book title",
-              "author": "Author name",
-              "imprint": "Publishing imprint",
-              "publication_date": "YYYY-MM-DD",
-              "nyt_bestseller": boolean,
-              "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
-              "reason": "Why this book is comparable"
-            }
-          ],
-          "recent_titles": [
-            {
-              "title": "Book title published in last 3 years",
-              "author": "Author name",
-              "imprint": "Publishing imprint",
-              "publication_date": "YYYY-MM-DD",
-              "nyt_bestseller": boolean,
-              "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
-              "reason": "Why this recent book is comparable"
-            }
-          ]
-        }`
-      },
-      {
-        role: "user",
-        content: `Analyze this manuscript excerpt: ${text}`
-      }
-    ],
-    temperature: 0.7,
-    max_tokens: 2000,
-    response_format: { type: "json_object" }
-  });
-
-  const content = completion.choices[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('No content received from OpenAI');
-  }
-
-  const analysis = JSON.parse(content) as AnalysisResults;
-  logger.info('[Process API] Analysis completed:', analysis);
-  return analysis;
 }
 
 export default async function handler(

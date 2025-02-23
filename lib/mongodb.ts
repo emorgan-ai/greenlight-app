@@ -1,4 +1,5 @@
 import { MongoClient, ObjectId } from 'mongodb';
+import OpenAI from 'openai';
 
 if (!process.env.MONGODB_URI) {
   throw new Error('Please add your Mongo URI to .env.local');
@@ -26,6 +27,89 @@ if (process.env.NODE_ENV === 'development') {
   // In production mode, it's best to not use a global variable.
   client = new MongoClient(uri, options);
   clientPromise = client.connect();
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+interface BookDetails {
+  title: string;
+  author: string;
+  imprint: string;
+  publication_date: string;
+  nyt_bestseller: boolean;
+  copies_sold: string;
+  marketing_strategy: string;
+  reason?: string;
+}
+
+interface AnalysisResults {
+  genre: string;
+  tropes: string[];
+  themes: string[];
+  comparable_titles: BookDetails[];
+  recent_titles: BookDetails[];
+}
+
+export async function analyzeManuscript(text: string): Promise<AnalysisResults> {
+  console.log('[MongoDB] Starting manuscript analysis');
+  
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4-turbo-preview",
+    messages: [
+      {
+        role: "system",
+        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+        {
+          "genre": "Primary genre of the manuscript",
+          "tropes": ["List of literary tropes used"],
+          "themes": ["List of major themes"],
+          "comparable_titles": [
+            {
+              "title": "Book title",
+              "author": "Author name",
+              "imprint": "Publishing imprint",
+              "publication_date": "YYYY-MM-DD",
+              "nyt_bestseller": boolean,
+              "copies_sold": "Approximate number",
+              "marketing_strategy": "Brief marketing approach",
+              "reason": "Why this book is comparable"
+            }
+          ],
+          "recent_titles": [
+            {
+              "title": "Book title published in last 3 years",
+              "author": "Author name",
+              "imprint": "Publishing imprint",
+              "publication_date": "YYYY-MM-DD",
+              "nyt_bestseller": boolean,
+              "copies_sold": "Approximate number",
+              "marketing_strategy": "Brief marketing approach",
+              "reason": "Why this recent book is comparable"
+            }
+          ]
+        }`
+      },
+      {
+        role: "user",
+        content: `Analyze this manuscript excerpt: ${text}`
+      }
+    ],
+    temperature: 0.7,
+    max_tokens: 2000,
+    response_format: { type: "json_object" }
+  });
+
+  const content = completion.choices[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('No content received from OpenAI');
+  }
+
+  const analysis = JSON.parse(content) as AnalysisResults;
+  console.log('[MongoDB] Analysis completed:', analysis);
+  return analysis;
 }
 
 export async function connectToDatabase() {

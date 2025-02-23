@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { insertSubmission } from '../../lib/mongodb';
+import { insertSubmission, connectToDatabase, analyzeManuscript } from '../../lib/mongodb';
 import { validatePDF, extractTextFromPDF } from '../../lib/pdf';
 
 export const config = {
@@ -81,30 +81,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Trigger analysis process
     console.log('[API] Triggering analysis process');
-    const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
-    const baseUrl = vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000';
-    const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
-    
-    console.log('[API] Process URL:', processUrl);
     
     try {
-      const processResponse = await fetch(processUrl, {
-        method: 'POST',
-      });
+      // Use direct database update instead of API call
+      const { db } = await connectToDatabase();
+      console.log('[API] Starting analysis directly');
+      
+      // Update status to processing
+      await db.collection('submissions').updateOne(
+        { _id: submission.insertedId },
+        { 
+          $set: { 
+            status: 'processing',
+            updated_at: new Date()
+          }
+        }
+      );
 
-      const responseText = await processResponse.text();
-      console.log('[API] Process response:', {
-        status: processResponse.status,
-        ok: processResponse.ok,
-        text: responseText
-      });
+      // Start analysis
+      const analysis = await analyzeManuscript(text);
 
-      if (!processResponse.ok) {
-        console.error('[API] Failed to trigger analysis:', responseText);
-      }
+      // Update with results
+      await db.collection('submissions').updateOne(
+        { _id: submission.insertedId },
+        { 
+          $set: { 
+            status: 'completed',
+            analysis: analysis,
+            updated_at: new Date()
+          }
+        }
+      );
+
+      console.log('[API] Analysis completed successfully');
     } catch (error) {
-      console.error('[API] Error triggering analysis:', error);
-      // Don't fail the upload if analysis trigger fails
+      console.error('[API] Error during analysis:', error);
+      
+      const { db } = await connectToDatabase();
+      await db.collection('submissions').updateOne(
+        { _id: submission.insertedId },
+        { 
+          $set: { 
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            updated_at: new Date()
+          }
+        }
+      );
     }
 
     console.log('[API] Upload successful');
