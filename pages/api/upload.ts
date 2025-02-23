@@ -51,10 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await validatePDF(buffer);
     } catch (error) {
-      console.error('[API] PDF validation error:', error);
-      return res.status(400).json({
-        error: error instanceof Error ? error.message : 'Invalid PDF file',
-      });
+      console.error('[API] PDF validation failed:', error);
+      return res.status(400).json({ error: 'Invalid PDF file' });
     }
 
     // Extract text from PDF
@@ -62,46 +60,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let text;
     try {
       text = await extractTextFromPDF(buffer);
-      console.log('[API] Extracted text length:', text.length);
     } catch (error) {
-      console.error('[API] Text extraction error:', error);
-      return res.status(500).json({ error: 'Failed to extract text from PDF' });
+      console.error('[API] Text extraction failed:', error);
+      return res.status(400).json({ error: 'Failed to extract text from PDF' });
     }
 
-    // Insert submission record
-    console.log('[API] Inserting submission to MongoDB');
-    let submission;
+    // Insert submission into database
+    console.log('[API] Inserting submission into database');
+    const submissionData = {
+      synopsis,
+      text,
+      file_name: file.originalFilename || 'unnamed.pdf',
+      file_size: file.size,
+      status: 'pending',
+      created_at: new Date(),
+    };
+
+    const result = await insertSubmission(submissionData);
+    
+    if (!result.insertedId) {
+      throw new Error('Failed to insert submission');
+    }
+
+    // Start analysis process
+    console.log('[API] Starting analysis process');
     try {
-      submission = await insertSubmission({
-        synopsis,
-        text,
-        file_name: file.originalFilename || 'unnamed.pdf',
-        file_size: file.size,
-        status: 'uploaded',
-        created_at: new Date(),
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/process/${result.insertedId}`, {
+        method: 'POST',
       });
-      console.log('[API] Submission created successfully:', submission.insertedId);
+      
+      if (!response.ok) {
+        console.error('[API] Failed to start analysis:', await response.text());
+      }
     } catch (error) {
-      console.error('[API] Database error:', error);
-      return res.status(500).json({ error: 'Failed to save submission' });
+      console.error('[API] Error starting analysis:', error);
     }
 
-    // Trigger analysis in the background
-    console.log('[API] Triggering analysis');
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/process/${submission.insertedId}`, {
-      method: 'POST',
-    }).catch(error => {
-      console.error('[API] Error triggering analysis:', error);
-    });
-
-    return res.status(200).json({
-      success: true,
-      submissionId: submission.insertedId,
-    });
+    return res.status(200).json({ success: true, submissionId: result.insertedId });
   } catch (error) {
-    console.error('[API] Unexpected error:', error);
-    return res.status(500).json({
-      error: error instanceof Error ? error.message : 'Upload failed',
-    });
+    console.error('[API] Unhandled error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

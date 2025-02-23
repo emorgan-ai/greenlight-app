@@ -78,9 +78,13 @@ export default function ResultsDisplay({ results }: ResultsDisplayProps) {
         <p className="text-gray-700">
           {results.status === 'pending' 
             ? 'Your manuscript is being analyzed. Please check back in a few minutes.'
+            : results.status === 'processing'
+            ? 'Your manuscript is currently being analyzed. This may take a few minutes.'
             : results.status === 'error'
             ? 'There was an error analyzing your manuscript. Please try uploading it again.'
-            : 'Analysis status unknown. Please try uploading your manuscript again.'}
+            : results.status === 'uploaded'
+            ? 'Your manuscript has been uploaded and will be analyzed shortly.'
+            : 'There was an error with your submission. Please try uploading your manuscript again.'}
         </p>
       </div>
     );
