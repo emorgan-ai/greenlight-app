@@ -7,71 +7,78 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-interface ManuscriptAnalysis {
-  overallImpression: string;
-  plotAnalysis: {
-    strength: string;
-    weaknesses: string[];
-    pacing: string;
-    structure: string;
-  };
-  characterAnalysis: {
-    mainCharacter: {
-      name: string;
-      development: string;
-      strengths: string[];
-      weaknesses: string[];
-    };
-    supportingCharacters: {
-      strengths: string;
-      weaknesses: string;
-    };
-  };
-  marketability: {
-    targetAudience: string;
-    genre: string;
-    comparableTitles: string[];
-    uniqueSellingPoints: string[];
-    marketPotential: string;
-  };
-  writingStyle: {
-    strengths: string[];
-    weaknesses: string[];
-    voiceAndTone: string;
-  };
-  recommendations: {
-    immediateActions: string[];
-    longTermSuggestions: string[];
-  };
+interface BookDetails {
+  title: string;
+  author: string;
+  imprint: string;
+  publication_date: string;
+  nyt_bestseller: boolean;
+  copies_sold: string;
+  marketing_strategy: string;
+  reason?: string;
 }
 
-async function analyzeManuscript(text: string): Promise<ManuscriptAnalysis> {
+interface AnalysisResults {
+  genre: string;
+  tropes: string[];
+  themes: string[];
+  comparable_titles: BookDetails[];
+  recent_titles: BookDetails[];
+}
+
+async function analyzeManuscript(text: string): Promise<AnalysisResults> {
   console.log('Starting manuscript analysis');
   
   const completion = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-4-turbo-preview",
     messages: [
       {
         role: "system",
-        content: "You are a literary agent's assistant analyzing manuscript submissions. Provide detailed analysis in JSON format."
+        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+        {
+          "genre": "Primary genre of the manuscript",
+          "tropes": ["List of literary tropes used"],
+          "themes": ["List of major themes"],
+          "comparable_titles": [
+            {
+              "title": "Book title",
+              "author": "Author name",
+              "imprint": "Publishing imprint",
+              "publication_date": "YYYY-MM-DD",
+              "nyt_bestseller": boolean,
+              "copies_sold": "Approximate number",
+              "marketing_strategy": "Brief marketing approach",
+              "reason": "Why this book is comparable"
+            }
+          ],
+          "recent_titles": [
+            {
+              "title": "Book title",
+              "author": "Author name",
+              "imprint": "Publishing imprint",
+              "publication_date": "YYYY-MM-DD (must be within last 2 years)",
+              "nyt_bestseller": boolean,
+              "copies_sold": "Approximate number",
+              "marketing_strategy": "Brief marketing approach",
+              "reason": "Why this book is comparable"
+            }
+          ]
+        }
+        
+        For comparable_titles, include 2-3 classic or well-established books that share similar themes, style, or appeal.
+        For recent_titles, include 2-3 books published within the last 2 years that would appeal to the same audience.
+        `
       },
       {
         role: "user",
-        content: `Analyze this manuscript excerpt and provide a detailed analysis in JSON format. Include plot analysis, character development, marketability, writing style, and specific recommendations.\n\nText: ${text}`
+        content: `Analyze this manuscript excerpt and provide a detailed analysis: ${text}`
       }
     ],
-    temperature: 0.7,
+    response_format: { type: "json_object" }
   });
 
-  const content = completion.choices[0].message.content;
-  
-  if (!content) {
-    throw new Error('No content received from OpenAI');
-  }
-
-  const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
-  const analysis = JSON.parse(jsonStr) as ManuscriptAnalysis;
-  
+  const analysis = JSON.parse(completion.choices[0].message.content);
+  console.log('Analysis completed:', analysis);
   return analysis;
 }
 
@@ -79,58 +86,68 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {
-    return res.status(400).json({ message: 'Invalid ID' });
+    return res.status(400).json({ message: 'Invalid submission ID' });
   }
 
   try {
-    const { db } = await connectToDatabase();
-    
+    // Validate ObjectId format
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid submission ID format' });
     }
 
-    const submission = await db.collection('submissions').findOne({
-      _id: new ObjectId(id)
-    });
+    const { db } = await connectToDatabase();
+    const submission = await db.collection('submissions').findOne({ _id: new ObjectId(id) });
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
     }
 
-    if (!submission.text) {
-      return res.status(400).json({ message: 'No text content found in submission' });
-    }
-
-    console.log('Processing submission:', id);
+    // Update status to processing
+    await db.collection('submissions').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status: 'processing' } }
+    );
 
     try {
       const analysis = await analyzeManuscript(submission.text);
 
-      // Update the submission with the analysis
+      // Update submission with analysis results
       await db.collection('submissions').updateOne(
         { _id: new ObjectId(id) },
         { 
           $set: { 
-            analysis,
             status: 'completed',
-            completedAt: new Date()
+            analysis: analysis,
+            updated_at: new Date()
           }
         }
       );
 
-      return res.status(200).json(analysis);
-    } catch (analysisError) {
-      console.error('Error analyzing manuscript:', analysisError);
-      return res.status(500).json({ message: 'Failed to analyze manuscript' });
-    }
+      return res.status(200).json({ message: 'Analysis completed', analysis });
+    } catch (error) {
+      console.error('Error during analysis:', error);
+      
+      // Update status to error
+      await db.collection('submissions').updateOne(
+        { _id: new ObjectId(id) },
+        { 
+          $set: { 
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            updated_at: new Date()
+          }
+        }
+      );
 
+      return res.status(500).json({ message: 'Error during analysis' });
+    }
   } catch (error) {
     console.error('Error processing submission:', error);
     return res.status(500).json({ message: 'Internal server error' });
