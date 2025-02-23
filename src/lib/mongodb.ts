@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 if (!process.env.MONGODB_URI) {
   throw new Error('Please add your Mongo URI to .env.local');
@@ -42,7 +42,7 @@ export async function updateSubmission(id: string, data: any) {
   const client = await clientPromise;
   const db = client.db('greenlight');
   return db.collection('submissions').updateOne(
-    { _id: id },
+    { _id: new ObjectId(id) },
     { $set: { ...data, updated_at: new Date() } }
   );
 }
@@ -50,7 +50,7 @@ export async function updateSubmission(id: string, data: any) {
 export async function getSubmission(id: string) {
   const client = await clientPromise;
   const db = client.db('greenlight');
-  return db.collection('submissions').findOne({ _id: id });
+  return db.collection('submissions').findOne({ _id: new ObjectId(id) });
 }
 
 export async function insertEmailSignup(email: string, submissionId: string) {
@@ -58,7 +58,7 @@ export async function insertEmailSignup(email: string, submissionId: string) {
   const db = client.db('greenlight');
   return db.collection('email_signups').insertOne({
     email,
-    submission_id: submissionId,
+    submissionId: new ObjectId(submissionId),
     created_at: new Date()
   });
 }
