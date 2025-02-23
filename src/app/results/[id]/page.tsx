@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ResultsDisplay from '../../../components/ResultsDisplay';
-import EmailSignup from '../../../components/EmailSignup';
+import ResultsDisplay from '@/components/ResultsDisplay';
+import EmailSignup from '@/components/EmailSignup';
 
 interface PageProps {
   params: {
