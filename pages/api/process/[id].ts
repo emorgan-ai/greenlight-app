@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
 import { connectToDatabase, updateSubmission } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
+import logger from '../../../lib/logger';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -27,7 +28,7 @@ interface AnalysisResults {
 }
 
 async function analyzeManuscript(text: string): Promise<AnalysisResults> {
-  console.log('Starting manuscript analysis');
+  logger.info('Starting manuscript analysis');
   
   const completion = await openai.chat.completions.create({
     model: "gpt-4-turbo-preview",
@@ -82,7 +83,7 @@ async function analyzeManuscript(text: string): Promise<AnalysisResults> {
   }
 
   const analysis = JSON.parse(content) as AnalysisResults;
-  console.log('Analysis completed:', analysis);
+  logger.info('Analysis completed:', analysis);
   return analysis;
 }
 
@@ -114,7 +115,7 @@ export default async function handler(
     }
 
     // Update status to processing
-    console.log('[Process API] Setting status to processing');
+    logger.info('[Process API] Setting status to processing');
     await updateSubmission(id, { 
       status: 'processing',
       updated_at: new Date()
@@ -124,7 +125,7 @@ export default async function handler(
       const analysis = await analyzeManuscript(submission.text);
 
       // Update submission with analysis results
-      console.log('[Process API] Setting status to completed');
+      logger.info('[Process API] Setting status to completed');
       await updateSubmission(id, { 
         status: 'completed',
         analysis: analysis,
@@ -133,10 +134,10 @@ export default async function handler(
 
       return res.status(200).json({ message: 'Analysis completed', analysis });
     } catch (error) {
-      console.error('Error during analysis:', error);
+      logger.error('Error during analysis:', error);
       
       // Update status to error
-      console.log('[Process API] Setting status to error');
+      logger.info('[Process API] Setting status to error');
       await updateSubmission(id, { 
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -146,7 +147,7 @@ export default async function handler(
       return res.status(500).json({ message: 'Error during analysis' });
     }
   } catch (error) {
-    console.error('Error processing submission:', error);
+    logger.error('Error processing submission:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }

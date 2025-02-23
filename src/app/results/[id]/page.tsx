@@ -41,7 +41,9 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   const fetchResults = async () => {
     try {
       console.log('Fetching results for ID:', params.id);
-      const response = await fetch(`/api/submissions/${params.id}`);
+      // Use the NEXT_PUBLIC_API_URL environment variable or fallback to relative URL
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/submissions/${params.id}`);
       console.log('Response status:', response.status);
       
       if (!response.ok) {
@@ -114,6 +116,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <div className="bg-blue-50 border border-blue-400 text-blue-700 px-4 py-3 rounded">
           <h2 className="text-xl font-semibold mb-4">Analysis Status</h2>
           <p>Your manuscript is being analyzed. Please check back in a few minutes.</p>
+          <p className="mt-2 text-sm">Current status: {results.status}</p>
         </div>
       </div>
     );
@@ -141,7 +144,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-yellow-50 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
         <h2 className="text-xl font-semibold mb-4">Unknown Status</h2>
-        <p>The status of your analysis is unknown. Please try refreshing the page or uploading your manuscript again.</p>
+        <p>The status of your analysis is unknown (status: {results.status}). Please try refreshing the page or uploading your manuscript again.</p>
       </div>
     </div>
   );
