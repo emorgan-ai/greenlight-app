@@ -33,8 +33,13 @@ interface Submission {
   };
 }
 
-export default function ResultsPage() {
-  const params = useParams();
+interface ResultsPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function ResultsPage({ params }: ResultsPageProps) {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
