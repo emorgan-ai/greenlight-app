@@ -1,15 +1,37 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { clientPromise } from '../../lib/mongodb';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { connectToDatabase } from '../../lib/mongodb';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+interface ConnectionResult {
+  success: boolean;
+  error: string | null;
+  collections?: string[];
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const results = {
-    mongodb: { success: false, error: null },
-    openai: { success: false, error: null },
+interface TestResults {
+  mongodb: ConnectionResult;
+  openai: ConnectionResult;
+  env: {
+    hasMongoDB: boolean;
+    hasOpenAI: boolean;
+    mongoDBLength: number;
+    openAILength: number;
+  }
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<TestResults>
+) {
+  const results: TestResults = {
+    mongodb: {
+      success: false,
+      error: null
+    },
+    openai: {
+      success: false,
+      error: null
+    },
     env: {
       hasMongoDB: !!process.env.MONGODB_URI,
       hasOpenAI: !!process.env.OPENAI_API_KEY,
@@ -20,44 +42,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Test MongoDB connection
   try {
-    const client = await clientPromise;
-    const db = client.db('greenlight');
-    const collections = await db.listCollections().toArray();
+    const { db } = await connectToDatabase();
+    const collections = await db.collections();
     results.mongodb = {
       success: true,
       error: null,
-      collections: collections.map(c => c.name)
+      collections: collections.map(c => c.collectionName)
     };
   } catch (error) {
     results.mongodb = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Failed to connect to MongoDB'
     };
   }
 
   // Test OpenAI connection
   try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
-      messages: [
-        {
-          role: "user",
-          content: "Test connection. Respond with 'Connected successfully' if you receive this."
-        }
-      ]
+      messages: [{ role: "user", content: "Test connection" }],
+      max_tokens: 5
     });
+
     results.openai = {
       success: true,
-      error: null,
-      response: completion.choices[0].message.content
+      error: null
     };
   } catch (error) {
     results.openai = {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Failed to connect to OpenAI'
     };
   }
 
-  // Return results
-  return res.status(200).json(results);
+  res.status(200).json(results);
 }
