@@ -52,7 +52,7 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
       console.log('Results data:', data);
       setResults(data);
       
-      // If status is pending or processing, continue polling
+      // Keep polling if the analysis is not complete
       if (data.status === 'pending' || data.status === 'processing') {
         setTimeout(fetchResults, 5000); // Poll every 5 seconds
       } else {
@@ -67,6 +67,10 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchResults();
+    return () => {
+      // Cleanup any pending timeouts
+      setLoading(false);
+    };
   }, [params.id]);
 
   if (loading && !results) {
@@ -103,5 +107,42 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
     );
   }
 
-  return <ResultsDisplay results={results} />;
+  // Show loading message while analysis is in progress
+  if (results.status === 'pending' || results.status === 'processing') {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-blue-50 border border-blue-400 text-blue-700 px-4 py-3 rounded">
+          <h2 className="text-xl font-semibold mb-4">Analysis Status</h2>
+          <p>Your manuscript is being analyzed. Please check back in a few minutes.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error message if analysis failed
+  if (results.status === 'error') {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <h2 className="text-xl font-semibold mb-4">Analysis Error</h2>
+          <p>There was an error analyzing your manuscript. Please try uploading it again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show the results if analysis is complete
+  if (results.status === 'completed' && results.analysis) {
+    return <ResultsDisplay results={results} />;
+  }
+
+  // Fallback message for unknown status
+  return (
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="bg-yellow-50 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+        <h2 className="text-xl font-semibold mb-4">Unknown Status</h2>
+        <p>The status of your analysis is unknown. Please try refreshing the page or uploading your manuscript again.</p>
+      </div>
+    </div>
+  );
 }

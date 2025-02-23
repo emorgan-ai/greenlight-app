@@ -72,28 +72,19 @@ function BookCard({ book }: { book: BookDetails }) {
 
 export default function ResultsDisplay({ results }: ResultsDisplayProps) {
   if (!results.analysis) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Analysis Status</h2>
-        <p className="text-gray-700">
-          {results.status === 'pending' 
-            ? 'Your manuscript is being analyzed. Please check back in a few minutes.'
-            : results.status === 'processing'
-            ? 'Your manuscript is currently being analyzed. This may take a few minutes.'
-            : results.status === 'error'
-            ? 'There was an error analyzing your manuscript. Please try uploading it again.'
-            : results.status === 'uploaded'
-            ? 'Your manuscript has been uploaded and will be analyzed shortly.'
-            : 'There was an error with your submission. Please try uploading your manuscript again.'}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   const analysis = results.analysis;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Synopsis */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Synopsis</h3>
+        <p className="text-gray-700">{results.synopsis}</p>
+      </div>
+
       {/* Primary Analysis */}
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
