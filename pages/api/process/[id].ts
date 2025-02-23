@@ -77,7 +77,12 @@ async function analyzeManuscript(text: string): Promise<AnalysisResults> {
     response_format: { type: "json_object" }
   });
 
-  const analysis = JSON.parse(completion.choices[0].message.content);
+  const content = completion.choices[0].message.content;
+  if (!content) {
+    throw new Error('No content received from OpenAI');
+  }
+
+  const analysis = JSON.parse(content) as AnalysisResults;
   console.log('Analysis completed:', analysis);
   return analysis;
 }
