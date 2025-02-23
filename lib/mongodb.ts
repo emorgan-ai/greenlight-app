@@ -28,6 +28,12 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
+export async function connectToDatabase() {
+  const client = await clientPromise;
+  const db = client.db('greenlight');
+  return { client, db };
+}
+
 export async function insertSubmission(data: {
   synopsis: string;
   text: string;
@@ -37,8 +43,7 @@ export async function insertSubmission(data: {
   created_at: Date;
 }) {
   try {
-    const client = await clientPromise;
-    const db = client.db('greenlight');
+    const { db } = await connectToDatabase();
     const result = await db.collection('submissions').insertOne(data);
     return result;
   } catch (error) {
@@ -49,22 +54,17 @@ export async function insertSubmission(data: {
 
 export async function getSubmission(id: string) {
   try {
-    const client = await clientPromise;
-    const db = client.db('greenlight');
-    const submission = await db.collection('submissions').findOne({
-      _id: new ObjectId(id),
-    });
-    return submission;
+    const { db } = await connectToDatabase();
+    return await db.collection('submissions').findOne({ _id: new ObjectId(id) });
   } catch (error) {
     console.error('Database error:', error);
-    throw new Error('Failed to fetch submission');
+    throw new Error('Failed to get submission');
   }
 }
 
 export async function updateSubmission(id: string, data: any) {
   try {
-    const client = await clientPromise;
-    const db = client.db('greenlight');
+    const { db } = await connectToDatabase();
     const result = await db.collection('submissions').updateOne(
       { _id: new ObjectId(id) },
       { $set: data }
@@ -78,12 +78,11 @@ export async function updateSubmission(id: string, data: any) {
 
 export async function insertEmailSignup(email: string, submissionId: string) {
   try {
-    const client = await clientPromise;
-    const db = client.db('greenlight');
+    const { db } = await connectToDatabase();
     const result = await db.collection('email_signups').insertOne({
       email,
       submissionId: new ObjectId(submissionId),
-      created_at: new Date(),
+      created_at: new Date()
     });
     return result;
   } catch (error) {
