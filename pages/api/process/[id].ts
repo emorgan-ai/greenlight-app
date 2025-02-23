@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { getSubmission, updateSubmission } from '../../../lib/mongodb';
 import OpenAI from 'openai';
@@ -7,7 +7,45 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-async function analyzeManuscript(text: string, synopsis: string) {
+interface ManuscriptAnalysis {
+  overallImpression: string;
+  plotAnalysis: {
+    strength: string;
+    weaknesses: string[];
+    pacing: string;
+    structure: string;
+  };
+  characterAnalysis: {
+    mainCharacter: {
+      name: string;
+      development: string;
+      strengths: string[];
+      weaknesses: string[];
+    };
+    supportingCharacters: {
+      strengths: string;
+      weaknesses: string;
+    };
+  };
+  marketability: {
+    targetAudience: string;
+    genre: string;
+    comparableTitles: string[];
+    uniqueSellingPoints: string[];
+    marketPotential: string;
+  };
+  writingStyle: {
+    strengths: string[];
+    weaknesses: string[];
+    voiceAndTone: string;
+  };
+  recommendations: {
+    immediateActions: string[];
+    longTermSuggestions: string[];
+  };
+}
+
+async function analyzeManuscript(text: string, synopsis: string): Promise<ManuscriptAnalysis> {
   const currentYear = new Date().getFullYear();
   console.log('Starting manuscript analysis');
   try {
@@ -113,7 +151,10 @@ For "recentComps", make sure all books were published in ${currentYear-5} or lat
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
