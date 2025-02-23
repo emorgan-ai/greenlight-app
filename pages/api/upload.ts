@@ -81,13 +81,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Trigger analysis process
     console.log('[API] Triggering analysis process');
+    const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+    const baseUrl = vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000';
+    const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
+    
+    console.log('[API] Process URL:', processUrl);
+    
     try {
-      const processResponse = await fetch(`${process.env.NEXT_PUBLIC_VERCEL_URL || ''}/api/process/${submission.insertedId}`, {
+      const processResponse = await fetch(processUrl, {
         method: 'POST',
       });
 
+      const responseText = await processResponse.text();
+      console.log('[API] Process response:', {
+        status: processResponse.status,
+        ok: processResponse.ok,
+        text: responseText
+      });
+
       if (!processResponse.ok) {
-        console.error('[API] Failed to trigger analysis:', await processResponse.text());
+        console.error('[API] Failed to trigger analysis:', responseText);
       }
     } catch (error) {
       console.error('[API] Error triggering analysis:', error);

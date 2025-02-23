@@ -28,7 +28,7 @@ interface AnalysisResults {
 }
 
 async function analyzeManuscript(text: string): Promise<AnalysisResults> {
-  logger.info('Starting manuscript analysis');
+  logger.info('[Process API] Starting manuscript analysis');
   
   const completion = await openai.chat.completions.create({
     model: "gpt-4-turbo-preview",
@@ -83,7 +83,7 @@ async function analyzeManuscript(text: string): Promise<AnalysisResults> {
   }
 
   const analysis = JSON.parse(content) as AnalysisResults;
-  logger.info('Analysis completed:', analysis);
+  logger.info('[Process API] Analysis completed:', analysis);
   return analysis;
 }
 
@@ -91,6 +91,12 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  logger.info('[Process API] Received request:', {
+    method: req.method,
+    id: req.query.id,
+    headers: req.headers
+  });
+
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
@@ -108,6 +114,7 @@ export default async function handler(
     }
 
     const { db } = await connectToDatabase();
+    logger.info('[Process API] Fetching submission:', id);
     const submission = await db.collection('submissions').findOne({ _id: new ObjectId(id) });
 
     if (!submission) {
@@ -122,6 +129,7 @@ export default async function handler(
     });
 
     try {
+      logger.info('[Process API] Starting analysis');
       const analysis = await analyzeManuscript(submission.text);
 
       // Update submission with analysis results
@@ -134,7 +142,7 @@ export default async function handler(
 
       return res.status(200).json({ message: 'Analysis completed', analysis });
     } catch (error) {
-      logger.error('Error during analysis:', error);
+      logger.error('[Process API] Error during analysis:', error);
       
       // Update status to error
       logger.info('[Process API] Setting status to error');
@@ -147,7 +155,7 @@ export default async function handler(
       return res.status(500).json({ message: 'Error during analysis' });
     }
   } catch (error) {
-    logger.error('Error processing submission:', error);
+    logger.error('[Process API] Error processing submission:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }
