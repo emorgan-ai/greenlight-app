@@ -41,9 +41,8 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   const fetchResults = async () => {
     try {
       console.log('Fetching results for ID:', params.id);
-      // Use the NEXT_PUBLIC_API_URL environment variable or fallback to relative URL
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
-      const response = await fetch(`${baseUrl}/api/submissions/${params.id}`);
+      // Use relative URL path - this will automatically use the current domain
+      const response = await fetch(`/api/submissions/${params.id}`);
       console.log('Response status:', response.status);
       
       if (!response.ok) {
