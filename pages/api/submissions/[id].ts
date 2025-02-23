@@ -21,7 +21,13 @@ export default async function handler(
       return res.status(400).json({ message: 'Invalid submission ID format' });
     }
 
+    console.log('[API] Fetching submission:', id);
     const submission = await getSubmission(id);
+    console.log('[API] Submission found:', {
+      id: submission?._id,
+      status: submission?.status,
+      hasAnalysis: !!submission?.analysis
+    });
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });

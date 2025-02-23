@@ -54,8 +54,17 @@ export async function insertSubmission(data: {
 
 export async function getSubmission(id: string) {
   try {
+    console.log('[MongoDB] Getting submission:', id);
     const { db } = await connectToDatabase();
-    return await db.collection('submissions').findOne({ _id: new ObjectId(id) });
+    const submission = await db.collection('submissions').findOne({ 
+      _id: new ObjectId(id) 
+    });
+    console.log('[MongoDB] Found submission:', {
+      id: submission?._id,
+      status: submission?.status,
+      hasAnalysis: !!submission?.analysis
+    });
+    return submission;
   } catch (error) {
     console.error('Database error:', error);
     throw new Error('Failed to get submission');
@@ -64,11 +73,13 @@ export async function getSubmission(id: string) {
 
 export async function updateSubmission(id: string, data: any) {
   try {
+    console.log('[MongoDB] Updating submission:', id, data);
     const { db } = await connectToDatabase();
     const result = await db.collection('submissions').updateOne(
       { _id: new ObjectId(id) },
       { $set: data }
     );
+    console.log('[MongoDB] Update result:', result);
     return result;
   } catch (error) {
     console.error('Database error:', error);

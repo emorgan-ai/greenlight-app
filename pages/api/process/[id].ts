@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
-import { connectToDatabase } from '../../../lib/mongodb';
+import { connectToDatabase, updateSubmission } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 const openai = new OpenAI({
@@ -53,31 +53,30 @@ async function analyzeManuscript(text: string): Promise<AnalysisResults> {
           ],
           "recent_titles": [
             {
-              "title": "Book title",
+              "title": "Book title published in last 3 years",
               "author": "Author name",
               "imprint": "Publishing imprint",
-              "publication_date": "YYYY-MM-DD (must be within last 2 years)",
+              "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
               "marketing_strategy": "Brief marketing approach",
-              "reason": "Why this book is comparable"
+              "reason": "Why this recent book is comparable"
             }
           ]
-        }
-        
-        For comparable_titles, include 2-3 classic or well-established books that share similar themes, style, or appeal.
-        For recent_titles, include 2-3 books published within the last 2 years that would appeal to the same audience.
-        `
+        }`
       },
       {
         role: "user",
-        content: `Analyze this manuscript excerpt and provide a detailed analysis: ${text}`
+        content: `Analyze this manuscript excerpt: ${text}`
       }
     ],
+    temperature: 0.7,
+    max_tokens: 2000,
     response_format: { type: "json_object" }
   });
 
-  const content = completion.choices[0].message.content;
+  const content = completion.choices[0]?.message?.content;
+
   if (!content) {
     throw new Error('No content received from OpenAI');
   }
@@ -115,41 +114,34 @@ export default async function handler(
     }
 
     // Update status to processing
-    await db.collection('submissions').updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status: 'processing' } }
-    );
+    console.log('[Process API] Setting status to processing');
+    await updateSubmission(id, { 
+      status: 'processing',
+      updated_at: new Date()
+    });
 
     try {
       const analysis = await analyzeManuscript(submission.text);
 
       // Update submission with analysis results
-      await db.collection('submissions').updateOne(
-        { _id: new ObjectId(id) },
-        { 
-          $set: { 
-            status: 'completed',
-            analysis: analysis,
-            updated_at: new Date()
-          }
-        }
-      );
+      console.log('[Process API] Setting status to completed');
+      await updateSubmission(id, { 
+        status: 'completed',
+        analysis: analysis,
+        updated_at: new Date()
+      });
 
       return res.status(200).json({ message: 'Analysis completed', analysis });
     } catch (error) {
       console.error('Error during analysis:', error);
       
       // Update status to error
-      await db.collection('submissions').updateOne(
-        { _id: new ObjectId(id) },
-        { 
-          $set: { 
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error',
-            updated_at: new Date()
-          }
-        }
-      );
+      console.log('[Process API] Setting status to error');
+      await updateSubmission(id, { 
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        updated_at: new Date()
+      });
 
       return res.status(500).json({ message: 'Error during analysis' });
     }
