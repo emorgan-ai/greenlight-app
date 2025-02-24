@@ -42,6 +42,7 @@ console.log('[MongoDB] OpenAI API Key status:', {
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  organization: process.env.OPENAI_ORG_ID,
 });
 
 interface BookDetails {
@@ -75,6 +76,15 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
   console.log('[MongoDB] First 100 characters:', text.substring(0, 100));
 
   try {
+    // Validate OpenAI configuration
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+
+    if (!process.env.OPENAI_ORG_ID) {
+      throw new Error('OpenAI Organization ID is not configured');
+    }
+
     console.log('[MongoDB] Making OpenAI request');
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
@@ -182,7 +192,8 @@ export async function getSubmission(id: string) {
     console.log('[MongoDB] Found submission:', {
       id: submission?._id,
       status: submission?.status,
-      hasAnalysis: !!submission?.analysis
+      hasAnalysis: !!submission?.analysis,
+      error: submission?.error
     });
     return submission;
   } catch (error) {
@@ -199,26 +210,10 @@ export async function updateSubmission(id: string, data: any) {
       { _id: new ObjectId(id) },
       { $set: data }
     );
-    console.log('[MongoDB] Update result:', result);
     return result;
   } catch (error) {
     console.error('Database error:', error);
     throw new Error('Failed to update submission');
-  }
-}
-
-export async function insertEmailSignup(email: string, submissionId: string) {
-  try {
-    const { db } = await connectToDatabase();
-    const result = await db.collection('email_signups').insertOne({
-      email,
-      submissionId: new ObjectId(submissionId),
-      created_at: new Date()
-    });
-    return result;
-  } catch (error) {
-    console.error('Database error:', error);
-    throw new Error('Failed to insert email signup');
   }
 }
 
