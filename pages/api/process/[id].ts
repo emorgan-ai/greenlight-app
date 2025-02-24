@@ -29,11 +29,12 @@ export default async function handler(
     }
 
     const { db } = await connectToDatabase();
+    console.log(`[Process API] Processing submission ${id}`);
     console.log('[Process API] Fetching submission:', id);
     const submission = await db.collection('submissions').findOne({ _id: new ObjectId(id) });
 
     if (!submission) {
-      console.error('[Process API] Submission not found:', id);
+      console.error(`[Process API] Submission ${id} not found`);
       return res.status(404).json({ message: 'Submission not found' });
     }
 
@@ -44,31 +45,38 @@ export default async function handler(
       status: submission.status
     });
 
+    if (submission.status === 'completed') {
+      console.log(`[Process API] Submission ${id} already processed`);
+      return res.status(200).json({ message: 'Already processed' });
+    }
+
     // Update status to processing
-    console.log('[Process API] Setting status to processing');
+    console.log(`[Process API] Updating status to processing for ${id}`);
     await updateSubmission(id, { 
       status: 'processing',
       updated_at: new Date()
     });
 
     try {
-      console.log('[Process API] Starting analysis');
+      console.log(`[Process API] Starting analysis for ${id}`);
       const analysis = await analyzeManuscript(submission.text);
+      console.log(`[Process API] Analysis completed for ${id}`, analysis);
 
       // Update submission with analysis results
-      console.log('[Process API] Setting status to completed');
+      console.log(`[Process API] Setting status to completed`);
       await updateSubmission(id, { 
         status: 'completed',
         analysis: analysis,
         updated_at: new Date()
       });
 
+      console.log(`[Process API] Successfully processed submission ${id}`);
       return res.status(200).json({ message: 'Analysis completed', analysis });
     } catch (error) {
-      console.error('[Process API] Error during analysis:', error);
+      console.error(`[Process API] Analysis error for ${id}:`, error);
       
       // Update status to error
-      console.log('[Process API] Setting status to error');
+      console.log(`[Process API] Setting status to error for ${id}`);
       await updateSubmission(id, { 
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -81,7 +89,7 @@ export default async function handler(
       });
     }
   } catch (error) {
-    console.error('[Process API] Error processing submission:', error);
+    console.error(`[Process API] Process error for ${id}:`, error);
     return res.status(500).json({ 
       message: 'Internal server error',
       error: error instanceof Error ? error.message : 'Unknown error'

@@ -82,17 +82,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Failed to insert submission');
     }
 
-    // Trigger analysis process
-    console.log('[Upload API] Triggering analysis process');
-    
-    // Get the host from the request headers
-    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    // Get the base URL for the API
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
     const host = req.headers.host || 'localhost:3000';
     const baseUrl = `${protocol}://${host}`;
+    
+    // Trigger analysis process
+    console.log('[Upload API] Triggering analysis process');
     const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
-    
     console.log('[Upload API] Process URL:', processUrl);
-    
+
     try {
       // Make the request to the process API
       const processResponse = await fetch(processUrl, {
