@@ -33,16 +33,20 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
-// Log OpenAI API key status
-console.log('[MongoDB] OpenAI API Key status:', {
-  exists: !!process.env.OPENAI_API_KEY,
-  length: process.env.OPENAI_API_KEY?.length,
-  prefix: process.env.OPENAI_API_KEY?.substring(0, 3)
+// Log OpenAI API key status (safely)
+console.log('[MongoDB] OpenAI configuration status:', {
+  apiKeyExists: !!process.env.OPENAI_API_KEY,
+  apiKeyLength: process.env.OPENAI_API_KEY?.length,
+  apiKeyPrefix: process.env.OPENAI_API_KEY?.substring(0, 3),
+  orgIdExists: !!process.env.OPENAI_ORG_ID,
+  orgIdLength: process.env.OPENAI_ORG_ID?.length,
+  orgIdPrefix: process.env.OPENAI_ORG_ID?.substring(0, 3)
 });
 
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  organization: process.env.OPENAI_ORG_ID,
+  organization: process.env.OPENAI_ORG_ID
 });
 
 interface BookDetails {
@@ -81,79 +85,88 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
       throw new Error('OpenAI API key is not configured');
     }
 
-    if (!process.env.OPENAI_ORG_ID) {
-      throw new Error('OpenAI Organization ID is not configured');
-    }
-
     console.log('[MongoDB] Making OpenAI request');
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
-          {
-            "genre": "Primary genre of the manuscript",
-            "tropes": ["List of literary tropes used"],
-            "themes": ["List of major themes"],
-            "comparable_titles": [
-              {
-                "title": "Book title",
-                "author": "Author name",
-                "imprint": "Publishing imprint",
-                "publication_date": "YYYY-MM-DD",
-                "nyt_bestseller": boolean,
-                "copies_sold": "Approximate number",
-                "marketing_strategy": "Brief marketing approach",
-                "reason": "Why this book is comparable"
-              }
-            ],
-            "recent_titles": [
-              {
-                "title": "Book title published in last 3 years",
-                "author": "Author name",
-                "imprint": "Publishing imprint",
-                "publication_date": "YYYY-MM-DD",
-                "nyt_bestseller": boolean,
-                "copies_sold": "Approximate number",
-                "marketing_strategy": "Brief marketing approach",
-                "reason": "Why this recent book is comparable"
-              }
-            ]
-          }`
-        },
-        {
-          role: "user",
-          content: `Analyze this manuscript excerpt: ${text}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-      response_format: { type: "json_object" }
-    });
-
-    console.log('[MongoDB] OpenAI request completed');
-    const content = completion.choices[0]?.message?.content;
-
-    if (!content) {
-      console.error('[MongoDB] No content received from OpenAI');
-      throw new Error('No content received from OpenAI');
-    }
-
     try {
-      console.log('[MongoDB] Parsing OpenAI response');
-      const analysis = JSON.parse(content) as AnalysisResults;
-      console.log('[MongoDB] Analysis completed:', analysis);
-      return analysis;
-    } catch (parseError) {
-      console.error('[MongoDB] Error parsing OpenAI response:', parseError, 'Content:', content);
-      throw new Error('Failed to parse OpenAI response');
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",  // Changed from gpt-4-turbo-preview to gpt-4
+        messages: [
+          {
+            role: "system",
+            content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+            {
+              "genre": "Primary genre of the manuscript",
+              "tropes": ["List of literary tropes used"],
+              "themes": ["List of major themes"],
+              "comparable_titles": [
+                {
+                  "title": "Book title",
+                  "author": "Author name",
+                  "imprint": "Publishing imprint",
+                  "publication_date": "YYYY-MM-DD",
+                  "nyt_bestseller": boolean,
+                  "copies_sold": "Approximate number",
+                  "marketing_strategy": "Brief marketing approach",
+                  "reason": "Why this book is comparable"
+                }
+              ],
+              "recent_titles": [
+                {
+                  "title": "Book title published in last 3 years",
+                  "author": "Author name",
+                  "imprint": "Publishing imprint",
+                  "publication_date": "YYYY-MM-DD",
+                  "nyt_bestseller": boolean,
+                  "copies_sold": "Approximate number",
+                  "marketing_strategy": "Brief marketing approach",
+                  "reason": "Why this recent book is comparable"
+                }
+              ]
+            }`
+          },
+          {
+            role: "user",
+            content: `Analyze this manuscript excerpt: ${text}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+        response_format: { type: "json_object" }
+      });
+
+      console.log('[MongoDB] OpenAI request completed');
+      const content = completion.choices[0]?.message?.content;
+
+      if (!content) {
+        console.error('[MongoDB] No content received from OpenAI');
+        throw new Error('No content received from OpenAI');
+      }
+
+      try {
+        console.log('[MongoDB] Parsing OpenAI response');
+        const analysis = JSON.parse(content) as AnalysisResults;
+        console.log('[MongoDB] Analysis completed successfully');
+        return analysis;
+      } catch (parseError) {
+        console.error('[MongoDB] Error parsing OpenAI response:', parseError, 'Content:', content);
+        throw new Error('Failed to parse OpenAI response');
+      }
+    } catch (openaiError) {
+      console.error('[MongoDB] OpenAI API error:', openaiError);
+      if (openaiError instanceof Error) {
+        // Check for specific OpenAI error types
+        if (openaiError.message.includes('401')) {
+          throw new Error('OpenAI API key is invalid');
+        } else if (openaiError.message.includes('429')) {
+          throw new Error('OpenAI rate limit exceeded');
+        } else if (openaiError.message.includes('500')) {
+          throw new Error('OpenAI service error');
+        }
+        throw new Error(`OpenAI API error: ${openaiError.message}`);
+      }
+      throw openaiError;
     }
   } catch (error) {
-    console.error('[MongoDB] OpenAI API error:', error);
-    if (error instanceof Error) {
-      throw new Error(`OpenAI API error: ${error.message}`);
-    }
+    console.error('[MongoDB] Analysis error:', error);
     throw error;
   }
 }
@@ -177,7 +190,7 @@ export async function insertSubmission(data: {
     const result = await db.collection('submissions').insertOne(data);
     return result;
   } catch (error) {
-    console.error('Database error:', error);
+    console.error('[MongoDB] Database error:', error);
     throw new Error('Failed to insert submission');
   }
 }
@@ -197,7 +210,7 @@ export async function getSubmission(id: string) {
     });
     return submission;
   } catch (error) {
-    console.error('Database error:', error);
+    console.error('[MongoDB] Database error:', error);
     throw new Error('Failed to get submission');
   }
 }
@@ -212,7 +225,7 @@ export async function updateSubmission(id: string, data: any) {
     );
     return result;
   } catch (error) {
-    console.error('Database error:', error);
+    console.error('[MongoDB] Database error:', error);
     throw new Error('Failed to update submission');
   }
 }
