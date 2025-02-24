@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { insertSubmission, connectToDatabase, analyzeManuscript } from '../../lib/mongodb';
+import { insertSubmission } from '../../lib/mongodb';
 import { validatePDF, extractTextFromPDF } from '../../lib/pdf';
+import fetch from 'node-fetch';
 
 export const config = {
   api: {
@@ -82,55 +83,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Trigger analysis process
     console.log('[API] Triggering analysis process');
     
-    try {
-      // Use direct database update instead of API call
-      const { db } = await connectToDatabase();
-      console.log('[API] Starting analysis directly');
-      
-      // Update status to processing
-      await db.collection('submissions').updateOne(
-        { _id: submission.insertedId },
-        { 
-          $set: { 
-            status: 'processing',
-            updated_at: new Date()
-          }
-        }
-      );
+    // Get the host from the request headers
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
+    const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
+    
+    console.log('[API] Process URL:', processUrl);
+    
+    // Start analysis in the background
+    fetch(processUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }).catch(error => {
+      console.error('[API] Error triggering analysis (non-blocking):', error);
+    });
 
-      // Start analysis
-      const analysis = await analyzeManuscript(text);
-
-      // Update with results
-      await db.collection('submissions').updateOne(
-        { _id: submission.insertedId },
-        { 
-          $set: { 
-            status: 'completed',
-            analysis: analysis,
-            updated_at: new Date()
-          }
-        }
-      );
-
-      console.log('[API] Analysis completed successfully');
-    } catch (error) {
-      console.error('[API] Error during analysis:', error);
-      
-      const { db } = await connectToDatabase();
-      await db.collection('submissions').updateOne(
-        { _id: submission.insertedId },
-        { 
-          $set: { 
-            status: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error',
-            updated_at: new Date()
-          }
-        }
-      );
-    }
-
-    console.log('[API] Upload successful');
+    console.log('[API] Upload successful, analysis started in background');
     return res.status(200).json({ submissionId: submission.insertedId });
   } catch (error) {
     console.error('[API] Upload error:', error);
