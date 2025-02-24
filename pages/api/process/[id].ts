@@ -53,8 +53,16 @@ export default async function handler(
     const submission = await db.collection('submissions').findOne({ _id: new ObjectId(id) });
 
     if (!submission) {
+      logger.error('[Process API] Submission not found:', id);
       return res.status(404).json({ message: 'Submission not found' });
     }
+
+    logger.info('[Process API] Found submission:', {
+      id: submission._id,
+      fileName: submission.file_name,
+      textLength: submission.text?.length,
+      status: submission.status
+    });
 
     // Update status to processing
     logger.info('[Process API] Setting status to processing');
@@ -87,7 +95,7 @@ export default async function handler(
         updated_at: new Date()
       });
 
-      return res.status(500).json({ message: 'Error during analysis' });
+      return res.status(500).json({ message: 'Error during analysis', error: error instanceof Error ? error.message : 'Unknown error' });
     }
   } catch (error) {
     logger.error('[Process API] Error processing submission:', error);

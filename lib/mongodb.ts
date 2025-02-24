@@ -33,6 +33,13 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
+// Log OpenAI API key status
+console.log('[MongoDB] OpenAI API Key status:', {
+  exists: !!process.env.OPENAI_API_KEY,
+  length: process.env.OPENAI_API_KEY?.length,
+  prefix: process.env.OPENAI_API_KEY?.substring(0, 3)
+});
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -63,6 +70,9 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
     console.error('[MongoDB] Empty text provided for analysis');
     throw new Error('No text provided for analysis');
   }
+
+  console.log('[MongoDB] Text length:', text.length);
+  console.log('[MongoDB] First 100 characters:', text.substring(0, 100));
 
   try {
     console.log('[MongoDB] Making OpenAI request');
