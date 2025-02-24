@@ -43,11 +43,16 @@ console.log('[MongoDB] OpenAI configuration status:', {
   orgIdPrefix: process.env.OPENAI_ORG_ID?.substring(0, 3)
 });
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  organization: process.env.OPENAI_ORG_ID
-});
+// Initialize OpenAI client with optional organization
+const openaiConfig: { apiKey: string; organization?: string } = {
+  apiKey: process.env.OPENAI_API_KEY!
+};
+
+if (process.env.OPENAI_ORG_ID) {
+  openaiConfig.organization = process.env.OPENAI_ORG_ID;
+}
+
+const openai = new OpenAI(openaiConfig);
 
 interface BookDetails {
   title: string;
@@ -88,7 +93,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
     console.log('[MongoDB] Making OpenAI request');
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",  // Changed from gpt-4-turbo-preview to gpt-4
+        model: "gpt-4",  // Using stable gpt-4 model
         messages: [
           {
             role: "system",
