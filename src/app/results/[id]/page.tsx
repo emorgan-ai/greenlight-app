@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ResultsDisplay from '../../../components/ResultsDisplay';
 
 interface BookDetails {
@@ -31,17 +31,21 @@ interface Submission {
   status: string;
   created_at: string;
   analysis?: AnalysisResults;
+  error?: string;
 }
 
 export default function ResultsPage({ params }: { params: { id: string } }) {
   const [results, setResults] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout>();
+  const mountedRef = useRef(true);
 
   const fetchResults = async () => {
+    if (!mountedRef.current) return;
+
     try {
       console.log('Fetching results for ID:', params.id);
-      // Use relative URL path - this will automatically use the current domain
       const response = await fetch(`/api/submissions/${params.id}`);
       console.log('Response status:', response.status);
       
@@ -51,26 +55,33 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
 
       const data = await response.json();
       console.log('Results data:', data);
+      
+      if (!mountedRef.current) return;
       setResults(data);
       
       // Keep polling if the analysis is not complete
       if (data.status === 'pending' || data.status === 'processing') {
-        setTimeout(fetchResults, 5000); // Poll every 5 seconds
+        timeoutRef.current = setTimeout(fetchResults, 5000); // Poll every 5 seconds
       } else {
         setLoading(false);
       }
     } catch (err) {
       console.error('Error fetching results:', err);
+      if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load results');
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchResults();
+    
     return () => {
-      // Cleanup any pending timeouts
-      setLoading(false);
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
     };
   }, [params.id]);
 
@@ -128,6 +139,9 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
         <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
           <h2 className="text-xl font-semibold mb-4">Analysis Error</h2>
           <p>There was an error analyzing your manuscript. Please try uploading it again.</p>
+          {results.error && (
+            <p className="mt-2 text-sm">Error details: {results.error}</p>
+          )}
         </div>
       </div>
     );

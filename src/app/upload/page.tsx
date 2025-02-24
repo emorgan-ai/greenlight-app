@@ -7,10 +7,15 @@ import UploadForm from '@/components/UploadForm';
 export default function UploadPage() {
   const router = useRouter();
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (formData: FormData) => {
+    if (isSubmitting) return; // Prevent duplicate submissions
+    
     try {
+      setIsSubmitting(true);
       setError('');
+      
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -30,6 +35,8 @@ export default function UploadPage() {
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during upload');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -50,7 +57,7 @@ export default function UploadPage() {
         </div>
       )}
 
-      <UploadForm onSubmit={handleSubmit} />
+      <UploadForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
     </div>
   );
 }
