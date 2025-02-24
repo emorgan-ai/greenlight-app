@@ -93,11 +93,11 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
     console.log('[MongoDB] Making OpenAI request');
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",  // Using stable gpt-4 model
+        model: "gpt-4",
         messages: [
           {
             role: "system",
-            content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+            content: `You are a literary agent's assistant analyzing manuscripts. You must respond with a JSON object exactly matching this structure, with no additional text or explanation:
             {
               "genre": "Primary genre of the manuscript",
               "tropes": ["List of literary tropes used"],
@@ -130,12 +130,11 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
           },
           {
             role: "user",
-            content: `Analyze this manuscript excerpt: ${text}`
+            content: `Analyze this manuscript excerpt and respond with ONLY a JSON object matching the specified structure: ${text}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
-        response_format: { type: "json_object" }
+        max_tokens: 2000
       });
 
       console.log('[MongoDB] OpenAI request completed');
