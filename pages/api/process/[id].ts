@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectToDatabase, updateSubmission, getSubmission } from '../../../lib/mongodb';
+import { getSubmission, updateSubmission } from '../../../lib/mongodb';
 import { analyzeManuscript } from '../../../lib/openai';
-import { ObjectId } from 'mongodb';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,19 +13,19 @@ export default async function handler(
   });
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {
-    return res.status(400).json({ message: 'Invalid submission ID' });
+    return res.status(400).json({ error: 'Invalid submission ID' });
   }
 
   try {
     // Validate ObjectId format
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid submission ID format' });
+      return res.status(400).json({ error: 'Invalid submission ID format' });
     }
 
     console.log(`[Process API] Processing submission ${id}`);
@@ -37,7 +36,7 @@ export default async function handler(
 
       if (!submission) {
         console.error(`[Process API] Submission ${id} not found`);
-        return res.status(404).json({ message: 'Submission not found' });
+        return res.status(404).json({ error: 'Submission not found' });
       }
 
       console.log('[Process API] Found submission:', {
@@ -69,6 +68,7 @@ export default async function handler(
         await updateSubmission(id, {
           ...analysis,
           status: 'completed',
+          completed_at: new Date(),
           updated_at: new Date(),
         });
 
@@ -85,21 +85,21 @@ export default async function handler(
         });
 
         return res.status(500).json({ 
-          message: 'Error during analysis', 
+          error: 'Error during analysis', 
           error: error instanceof Error ? error.message : 'Unknown error' 
         });
       }
     } catch (error) {
       console.error(`[Process API] Process error for ${id}:`, error);
       return res.status(500).json({ 
-        message: 'Internal server error',
+        error: 'Internal server error',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   } catch (error) {
     console.error(`[Process API] Process error for ${id}:`, error);
     return res.status(500).json({ 
-      message: 'Internal server error',
+      error: 'Internal server error',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
