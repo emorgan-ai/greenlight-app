@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { insertSubmission } from '../../lib/mongodb';
+import { insertSubmission, updateSubmission } from '../../lib/mongodb';
 import { validatePDF, extractTextFromPDF } from '../../lib/pdf';
-import fetch from 'node-fetch';
+import { analyzeManuscript } from '../../lib/openai';
 
 export const config = {
   api: {
@@ -74,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       text,
       file_name: file.originalFilename || 'unnamed.pdf',
       file_size: file.size,
-      status: 'pending',
+      status: 'processing', // Start in processing state
       created_at: new Date(),
     });
 
@@ -82,41 +82,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Failed to insert submission');
     }
 
-    // Get the base URL for the API
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = req.headers.host || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
-    
-    // Trigger analysis process
-    console.log('[Upload API] Triggering analysis process');
-    const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
-    console.log('[Upload API] Process URL:', processUrl);
-
+    // Start analysis immediately
+    console.log('[Upload API] Starting analysis');
     try {
-      // Make the request to the process API
-      const processResponse = await fetch(processUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const analysis = await analyzeManuscript(text);
+      console.log('[Upload API] Analysis completed successfully');
+      
+      // Update with analysis results
+      await updateSubmission(submission.insertedId.toString(), {
+        ...analysis,
+        status: 'completed',
+        completed_at: new Date(),
       });
-
-      if (!processResponse.ok) {
-        const errorText = await processResponse.text();
-        console.error('[Upload API] Process API error:', {
-          status: processResponse.status,
-          statusText: processResponse.statusText,
-          error: errorText
-        });
-      } else {
-        console.log('[Upload API] Process API triggered successfully');
-      }
     } catch (error) {
-      console.error('[Upload API] Error triggering analysis:', error);
-      // Don't fail the upload if analysis trigger fails
+      console.error('[Upload API] Analysis error:', error);
+      
+      // Update status to error
+      await updateSubmission(submission.insertedId.toString(), {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error during analysis',
+      });
     }
 
-    console.log('[Upload API] Upload successful');
+    console.log('[Upload API] Upload and initial processing complete');
     return res.status(200).json({ submissionId: submission.insertedId });
   } catch (error) {
     console.error('[Upload API] Upload error:', error);
