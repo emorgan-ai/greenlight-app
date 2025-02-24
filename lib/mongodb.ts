@@ -5,6 +5,10 @@ if (!process.env.MONGODB_URI) {
   throw new Error('Please add your Mongo URI to .env.local');
 }
 
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('Please add your OpenAI API key to .env.local');
+}
+
 const uri = process.env.MONGODB_URI;
 const options = {};
 
@@ -55,61 +59,83 @@ interface AnalysisResults {
 export async function analyzeManuscript(text: string): Promise<AnalysisResults> {
   console.log('[MongoDB] Starting manuscript analysis');
   
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4-turbo-preview",
-    messages: [
-      {
-        role: "system",
-        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
-        {
-          "genre": "Primary genre of the manuscript",
-          "tropes": ["List of literary tropes used"],
-          "themes": ["List of major themes"],
-          "comparable_titles": [
-            {
-              "title": "Book title",
-              "author": "Author name",
-              "imprint": "Publishing imprint",
-              "publication_date": "YYYY-MM-DD",
-              "nyt_bestseller": boolean,
-              "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
-              "reason": "Why this book is comparable"
-            }
-          ],
-          "recent_titles": [
-            {
-              "title": "Book title published in last 3 years",
-              "author": "Author name",
-              "imprint": "Publishing imprint",
-              "publication_date": "YYYY-MM-DD",
-              "nyt_bestseller": boolean,
-              "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
-              "reason": "Why this recent book is comparable"
-            }
-          ]
-        }`
-      },
-      {
-        role: "user",
-        content: `Analyze this manuscript excerpt: ${text}`
-      }
-    ],
-    temperature: 0.7,
-    max_tokens: 2000,
-    response_format: { type: "json_object" }
-  });
-
-  const content = completion.choices[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('No content received from OpenAI');
+  if (!text || text.trim().length === 0) {
+    console.error('[MongoDB] Empty text provided for analysis');
+    throw new Error('No text provided for analysis');
   }
 
-  const analysis = JSON.parse(content) as AnalysisResults;
-  console.log('[MongoDB] Analysis completed:', analysis);
-  return analysis;
+  try {
+    console.log('[MongoDB] Making OpenAI request');
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        {
+          role: "system",
+          content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+          {
+            "genre": "Primary genre of the manuscript",
+            "tropes": ["List of literary tropes used"],
+            "themes": ["List of major themes"],
+            "comparable_titles": [
+              {
+                "title": "Book title",
+                "author": "Author name",
+                "imprint": "Publishing imprint",
+                "publication_date": "YYYY-MM-DD",
+                "nyt_bestseller": boolean,
+                "copies_sold": "Approximate number",
+                "marketing_strategy": "Brief marketing approach",
+                "reason": "Why this book is comparable"
+              }
+            ],
+            "recent_titles": [
+              {
+                "title": "Book title published in last 3 years",
+                "author": "Author name",
+                "imprint": "Publishing imprint",
+                "publication_date": "YYYY-MM-DD",
+                "nyt_bestseller": boolean,
+                "copies_sold": "Approximate number",
+                "marketing_strategy": "Brief marketing approach",
+                "reason": "Why this recent book is comparable"
+              }
+            ]
+          }`
+        },
+        {
+          role: "user",
+          content: `Analyze this manuscript excerpt: ${text}`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" }
+    });
+
+    console.log('[MongoDB] OpenAI request completed');
+    const content = completion.choices[0]?.message?.content;
+
+    if (!content) {
+      console.error('[MongoDB] No content received from OpenAI');
+      throw new Error('No content received from OpenAI');
+    }
+
+    try {
+      console.log('[MongoDB] Parsing OpenAI response');
+      const analysis = JSON.parse(content) as AnalysisResults;
+      console.log('[MongoDB] Analysis completed:', analysis);
+      return analysis;
+    } catch (parseError) {
+      console.error('[MongoDB] Error parsing OpenAI response:', parseError, 'Content:', content);
+      throw new Error('Failed to parse OpenAI response');
+    }
+  } catch (error) {
+    console.error('[MongoDB] OpenAI API error:', error);
+    if (error instanceof Error) {
+      throw new Error(`OpenAI API error: ${error.message}`);
+    }
+    throw error;
+  }
 }
 
 export async function connectToDatabase() {
