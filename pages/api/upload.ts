@@ -17,13 +17,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  console.log('[API] POST /api/upload - Start');
+  console.log('[Upload API] POST /api/upload - Start');
 
   try {
     const form = formidable({});
     const [fields, files] = await form.parse(req);
 
-    console.log('[API] Form data received:', {
+    console.log('[Upload API] Form data received:', {
       fields: Object.keys(fields),
       files: Object.keys(files),
     });
@@ -32,12 +32,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const file = files.file?.[0];
 
     if (!synopsis || !file) {
-      console.log('[API] Missing required fields:', { synopsis: !!synopsis, file: !!file });
+      console.log('[Upload API] Missing required fields:', { synopsis: !!synopsis, file: !!file });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Read file buffer
-    console.log('[API] Reading file buffer');
+    console.log('[Upload API] Reading file buffer');
     const fileStream = createReadStream(file.filepath);
     const chunks: Buffer[] = [];
     
@@ -48,25 +48,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const buffer = Buffer.concat(chunks);
 
     // Validate PDF
-    console.log('[API] Validating PDF');
+    console.log('[Upload API] Validating PDF');
     try {
       await validatePDF(buffer);
     } catch (error) {
-      console.error('[API] PDF validation error:', error);
+      console.error('[Upload API] PDF validation error:', error);
       return res.status(400).json({ error: 'Invalid PDF file' });
     }
 
     // Extract text from PDF
-    console.log('[API] Extracting text from PDF');
+    console.log('[Upload API] Extracting text from PDF');
     const text = await extractTextFromPDF(buffer);
 
     if (!text) {
-      console.error('[API] No text extracted from PDF');
+      console.error('[Upload API] No text extracted from PDF');
       return res.status(400).json({ error: 'Could not extract text from PDF' });
     }
 
+    console.log('[Upload API] Text extracted, length:', text.length);
+
     // Insert submission into database
-    console.log('[API] Inserting submission into database');
+    console.log('[Upload API] Inserting submission into database');
     const submission = await insertSubmission({
       synopsis,
       text,
@@ -81,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Trigger analysis process
-    console.log('[API] Triggering analysis process');
+    console.log('[Upload API] Triggering analysis process');
     
     // Get the host from the request headers
     const protocol = req.headers['x-forwarded-proto'] || 'http';
@@ -89,22 +91,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const baseUrl = `${protocol}://${host}`;
     const processUrl = `${baseUrl}/api/process/${submission.insertedId}`;
     
-    console.log('[API] Process URL:', processUrl);
+    console.log('[Upload API] Process URL:', processUrl);
     
-    // Start analysis in the background
-    fetch(processUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }).catch(error => {
-      console.error('[API] Error triggering analysis (non-blocking):', error);
-    });
+    try {
+      // Make the request to the process API
+      const processResponse = await fetch(processUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    console.log('[API] Upload successful, analysis started in background');
+      if (!processResponse.ok) {
+        const errorText = await processResponse.text();
+        console.error('[Upload API] Process API error:', {
+          status: processResponse.status,
+          statusText: processResponse.statusText,
+          error: errorText
+        });
+      } else {
+        console.log('[Upload API] Process API triggered successfully');
+      }
+    } catch (error) {
+      console.error('[Upload API] Error triggering analysis:', error);
+      // Don't fail the upload if analysis trigger fails
+    }
+
+    console.log('[Upload API] Upload successful');
     return res.status(200).json({ submissionId: submission.insertedId });
   } catch (error) {
-    console.error('[API] Upload error:', error);
+    console.error('[Upload API] Upload error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
