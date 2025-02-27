@@ -73,7 +73,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             },
             {
@@ -83,7 +83,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             },
             {
@@ -93,7 +93,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             }
           ],
@@ -105,7 +105,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this recent book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             },
             {
@@ -115,7 +115,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this recent book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             },
             {
@@ -125,7 +125,7 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
               "publication_date": "YYYY-MM-DD",
               "nyt_bestseller": boolean,
               "copies_sold": "Approximate number",
-              "marketing_strategy": "Brief marketing approach",
+              "marketing_strategy": "Document the actual marketing campaign and promotional activities used for this book. Include specific examples like book tours, media appearances, advertising campaigns, social media strategies, or special promotions. If no concrete marketing information is available, use 'unknown'.",
               "reason": "Provide a detailed analysis (1-2 paragraphs) of why this recent book is comparable. Include specific comparisons of genre, themes, tone, and voice. Discuss both similarities and key differences. Explain how these differences might affect market positioning. Consider elements like pacing, character development, and narrative style. If relevant, mention target audience overlap and potential marketing angles."
             }
           ]
