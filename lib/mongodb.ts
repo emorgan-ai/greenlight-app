@@ -60,10 +60,10 @@ export async function analyzeManuscript(text: string): Promise<AnalysisResults> 
     messages: [
       {
         role: "system",
-        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure:
+        content: `You are a literary agent's assistant analyzing manuscripts. Provide a detailed analysis in JSON format with the following structure. Each trope in the tropes array MUST be separated by a comma and space:
         {
           "genre": "Primary genre of the manuscript",
-          "tropes": ["List of literary tropes used"],
+          "tropes": ["First trope", "Second trope", "Third trope"],
           "themes": ["List of major themes"],
           "comparable_titles": [
             {
